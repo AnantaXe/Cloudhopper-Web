@@ -1,0 +1,25 @@
+import { Braces, Check, CircleAlert, FileCode2, FilePlus2, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { StatusBadge, statusTone } from '../../components/StatusBadge';
+import { useIaCFiles } from '../../hooks/use-migration-data';
+
+export function IaCStudio() {
+  const query = useIaCFiles();
+  const [activePath, setActivePath] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  if (query.isLoading) return <div className="page-state" role="status">Loading infrastructure files…</div>;
+  if (query.isError || !query.data) return <div className="page-state error-state" role="alert"><CircleAlert size={18} /> IaC files could not be loaded. <button className="text-button" onClick={() => void query.refetch()}>Retry</button></div>;
+
+  const activeFile = query.data.find((file) => file.path === activePath) ?? query.data[0];
+  if (!activeFile) return <div className="panel empty-state"><FileCode2 size={20} /><strong>No infrastructure files available</strong><span>Files will appear when a generation or retrieval service is connected.</span></div>;
+  const content = drafts[activeFile.path] ?? activeFile.content;
+  const hasDraft = Object.hasOwn(drafts, activeFile.path);
+  return <div className="page-stack">
+    <div className="demo-notice"><CircleAlert size={15} /> Generated sample code is unvalidated. Editor changes, plan, security scan, and policy checks are unavailable without backend contracts.</div>
+    <section className="panel iac-toolbar"><div><p className="eyebrow">Infrastructure workspace</p><h2>Northstar · Commerce core</h2></div><div className="iac-actions"><button className="quiet-button" disabled title="Diff service not connected">Review diff</button><button className="primary-button" disabled title="Validation service not connected"><ShieldCheck size={14} /> Validate IaC</button></div></section>
+    <section className="iac-workspace panel"><aside className="iac-file-tree" aria-label="Infrastructure files"><div className="tree-heading"><span>EXPLORER</span><FilePlus2 size={14} aria-label="Add file unavailable" /></div><div className="tree-folder"><span>▾</span> terraform</div>{query.data.filter((file) => file.path.startsWith('terraform/')).map((file) => <button className={`tree-file ${file.path === activeFile.path ? 'tree-file-active' : ''}`} key={file.path} onClick={() => setActivePath(file.path)}><FileCode2 size={14} />{file.path.split('/').at(-1)}<i className={`origin-mark origin-${file.origin.toLowerCase().replace(' ', '-')}`} title={file.origin} /></button>)}<div className="tree-folder"><span>▾</span> kubernetes</div>{query.data.filter((file) => file.path.startsWith('kubernetes/')).map((file) => <button className={`tree-file ${file.path === activeFile.path ? 'tree-file-active' : ''}`} key={file.path} onClick={() => setActivePath(file.path)}><Braces size={14} />{file.path.split('/').at(-1)}<i className={`origin-mark origin-${file.origin.toLowerCase().replace(' ', '-')}`} title={file.origin} /></button>)}<div className="file-tree-note"><span className="origin-key"><i className="origin-mark origin-generated" />Generated</span><span className="origin-key"><i className="origin-mark origin-user-edited" />User edited</span></div></aside>
+      <div className="iac-editor-column"><div className="editor-tab"><FileCode2 size={14} />{activeFile.path}<span className="editor-origin">{hasDraft ? 'Local draft · not saved' : activeFile.origin}</span><StatusBadge tone={statusTone(activeFile.validation)}>{activeFile.validation}</StatusBadge></div><div className="code-editor" aria-label={`${activeFile.path} source code`}><div className="line-numbers" aria-hidden="true">{content.split('\n').map((_, index) => <span key={index}>{index + 1}</span>)}</div><textarea aria-label={`Edit ${activeFile.path}`} spellCheck={false} value={content} onChange={(event) => setDrafts((current) => ({ ...current, [activeFile.path]: event.target.value }))} /></div><div className="editor-status"><span>UTF-8</span><span>{activeFile.language}</span><span>{hasDraft ? 'Local draft · not persisted' : 'Editable sample · changes stay in memory'}</span></div></div></section>
+    <section className="validation-output-grid"><article className="panel validation-output"><div className="panel-heading"><div><p className="eyebrow">Validation output</p><h2>Checks not run</h2></div><StatusBadge tone="warning">Not run</StatusBadge></div><div className="validation-placeholder"><CircleAlert size={17} /><span>No formatter, plan, or validation result is present in the demo record.</span></div></article><article className="panel validation-output"><div className="panel-heading"><div><p className="eyebrow">Policy & security</p><h2>Scan results</h2></div><ShieldCheck size={16} color="#91a099" /></div><div className="validation-placeholder"><CircleAlert size={17} /><span>Policy compliance and security scan results require a connected validation service.</span></div></article></section>
+    <div className="iac-approval-note"><Check size={14} /> Generated and user-edited files are labeled separately. No file is marked approved.</div>
+  </div>;
+}
